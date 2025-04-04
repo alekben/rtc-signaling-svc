@@ -15,13 +15,11 @@ let subscribedChannel = null; // e.g. "testChannel"
 // DOM elements
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
-const subscribeBtn = document.getElementById("subscribeBtn");
-const unsubscribeBtn = document.getElementById("unsubscribeBtn");
 const sendChannelMsgBtn = document.getElementById("sendChannelMsgBtn");
 const sendPeerMsgBtn = document.getElementById("sendPeerMsgBtn");
 
-const appIdInput = document.getElementById("appId");
-const tokenInput = document.getElementById("token");
+const appIdInput = "a9a4b25e4e8b4a558aa39780d1a84342";
+
 const userIdInput = document.getElementById("userId");
 const channelNameInput = document.getElementById("channelName");
 const channelMsgInput = document.getElementById("channelMsg");
@@ -39,8 +37,11 @@ const remoteVideo = document.getElementById("remoteVideo");
 
 // Modal Elements
 const loginModal = document.getElementById("loginModal");
+const inviteModal = document.getElementById("inviteModal");
 const showLoginBtn = document.getElementById("showLoginBtn");
-const closeModalBtn = document.getElementById("closeModalBtn");
+const inviteLinkInput = document.getElementById("inviteLink");
+const copyLinkBtn = document.getElementById("copyLinkBtn");
+const closeInviteModalBtn = document.getElementById("closeInviteModalBtn");
 
 // Tab Elements
 const tabBtns = document.querySelectorAll(".tab-btn");
@@ -115,8 +116,7 @@ function updateVideoLabels() {
 }
 
 // Add new RTC control buttons
-const joinChannelBtn = document.getElementById("joinChannelBtn");
-const leaveChannelBtn = document.getElementById("leaveChannelBtn");
+const leaveMeetingBtn = document.getElementById("logoutBtn");
 const toggleAudioBtn = document.getElementById("toggleAudioBtn");
 const toggleVideoBtn = document.getElementById("toggleVideoBtn");
 
@@ -131,8 +131,8 @@ function addChatMessage(container, text) {
 
 /** Login to RTM (Signaling 2.x). */
 loginBtn.addEventListener("click", async () => {
-  const appId = appIdInput.value.trim();
-  const token = tokenInput.value.trim() || null;
+  const appId = appIdInput;
+  const token = null;
   const userId = userIdInput.value.trim();
 
   if (!appId || !userId) {
@@ -141,6 +141,9 @@ loginBtn.addEventListener("click", async () => {
   }
 
   try {
+    // Show loading state
+    document.querySelector('.modal-content').classList.add('loading');
+    
     // Create and initialize RTM client
     const { RTM } = AgoraRTM;
     rtmClient = new RTM(appId, userId, rtmConfig);
@@ -149,7 +152,7 @@ loginBtn.addEventListener("click", async () => {
     rtmClient.addEventListener("status", (evt) => {
       console.log("RTM Status Event:", evt);
       updatePresenceIndicator(evt.state === "CONNECTED");
-      loginStatus.textContent = `Logged in as "${userId}"`;
+      loginStatus.textContent = `Connected to ${channelNameInput.value}`;
     });
 
     rtmClient.addEventListener("message", handleRtmChannelMessage);
@@ -169,20 +172,29 @@ loginBtn.addEventListener("click", async () => {
 
     // Enable UI
     logoutBtn.disabled = false;
-    subscribeBtn.disabled = false;
     sendPeerMsgBtn.disabled = false;
+
+    await subscribeRTM();
+
+    //set vp9 svc
+    AgoraRTC.setParameter("SVC",["vp9"]);
+    AgoraRTC.setParameter("ENABLE_AUT_CC", true);
 
     // Initialize RTC only after successful RTM login
     await initializeRTC(appId, token, userId);
 
+    await joinChannel();
+    
+    // Update participants list to include local user
+    updateParticipantsList();
+    
     // Hide login modal
     hideModal();
-
-    // Update local video label with user ID
-    localVideoLabel.textContent = userId;
   } catch (err) {
     console.error("Login failed:", err);
     alert("Login failed: " + err.message);
+    // Remove loading state on error
+    document.querySelector('.modal-content').classList.remove('loading');
   }
 });
 
@@ -210,20 +222,24 @@ logoutBtn.addEventListener("click", async () => {
     updateParticipantsList();
     updatePresenceIndicator(false);
 
+    // Hide remote video container
+    remoteVideo.classList.remove('has-remote');
+
     // Update UI
     loginStatus.textContent = "Not logged in";
     logoutBtn.disabled = true;
-    subscribeBtn.disabled = true;
-    unsubscribeBtn.disabled = true;
     sendChannelMsgBtn.disabled = true;
     sendPeerMsgBtn.disabled = true;
+
+    // Show login modal
+    showModal();
   } catch (err) {
     console.error("Logout error:", err);
   }
 });
 
 /** Subscribe to a channel (with messages + presence). */
-subscribeBtn.addEventListener("click", async () => {
+async function subscribeRTM() {
   if (!rtmClient) {
     alert("Please login first!");
     return;
@@ -243,48 +259,17 @@ subscribeBtn.addEventListener("click", async () => {
       withMetadata: false,
       withLock: false,
     });
-    channelStatus.textContent = `Subscribed to "${channelName}"`;
-    addChatMessage(channelChatBox, `You subscribed to channel: ${channelName}`);
 
     // Enable UI
-    subscribeBtn.disabled = true;
-    unsubscribeBtn.disabled = false;
-    sendChannelMsgBtn.disabled = false;
-    joinChannelBtn.disabled = false; // Enable RTC join button after signaling subscription
+    sendChannelMsgBtn.disabled = false;// Enable RTC join button after signaling subscription
 
   } catch (err) {
     console.error("Channel subscription failed:", err);
     alert("Channel subscription failed: " + err.message);
   }
-});
+};
 
-/** Unsubscribe from the currently subscribed channel. */
-unsubscribeBtn.addEventListener("click", async () => {
-  if (!rtmClient || !subscribedChannel) return;
-  try {
-    // Leave RTC channel first if we're in it
-    if (rtcClient) {
-      await rtcClient.leave();
-      joinChannelBtn.disabled = false;
-      leaveChannelBtn.disabled = true;
-      toggleVideoBtn.disabled = true;
-      toggleAudioBtn.disabled = true;
-    }
 
-    // Then unsubscribe from RTM channel
-    await rtmClient.unsubscribe(subscribedChannel);
-    addChatMessage(channelChatBox, `Unsubscribed from ${subscribedChannel}`);
-    channelStatus.textContent = "Not subscribed to any channel";
-    subscribedChannel = null;
-    subscribeBtn.disabled = false;
-    unsubscribeBtn.disabled = true;
-    sendChannelMsgBtn.disabled = true;
-    participants.clear();
-    updateParticipantsList();
-  } catch (err) {
-    console.error("Unsubscribe error:", err);
-  }
-});
 
 /** Publish a message to the subscribed channel. */
 sendChannelMsgBtn.addEventListener("click", async () => {
@@ -367,7 +352,7 @@ function handleRtmPresenceEvent(evt) {
       snapshot.forEach(user => {
         if (user.userId !== userIdInput.value) {
           participants.add(user.userId);
-          addChatMessage(channelChatBox, `[${timeStr}] [System] ${user.userId} is online`);
+          addChatMessage(channelChatBox, `[${timeStr}] [System] ${user.userId} joined the meeeting.`);
         }
       });
       
@@ -389,7 +374,7 @@ function handleRtmPresenceEvent(evt) {
       // Skip if it's our own leave event
       if (publisher !== userIdInput.value) {
         participants.delete(publisher);
-        addChatMessage(channelChatBox, `[${timeStr}] [System] ${publisher} left the channel`);
+        addChatMessage(channelChatBox, `[${timeStr}] [System] ${publisher} left the meeting.`);
         updateParticipantsList();
       }
     }
@@ -403,11 +388,16 @@ async function initializeRTC(appId, token, userId) {
       await rtcClient.leave();
     }
 
-    rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp9" });
 
     // Set up RTC event listeners
     rtcClient.on("user-published", async (user, mediaType) => {
       await rtcClient.subscribe(user, mediaType);
+      
+      // Show remote video container when first user publishes
+      if (!remoteVideo.classList.contains('has-remote')) {
+        remoteVideo.classList.add('has-remote');
+      }
       
       // Create or get video element for this user
       let videoElement;
@@ -445,6 +435,11 @@ async function initializeRTC(appId, token, userId) {
       else if (mediaType === "audio" && user.audioTrack) {
         user.audioTrack.stop();
       }
+
+      // Hide remote video container if no more remote users
+      if (remoteVideos.size === 0) {
+        remoteVideo.classList.remove('has-remote');
+      }
     });
 
     // Also handle user-left event to remove video tiles
@@ -456,6 +451,11 @@ async function initializeRTC(appId, token, userId) {
         }
         remoteVideos.delete(user.uid);
         updateVideoGrid();
+      }
+
+      // Hide remote video container if no more remote users
+      if (remoteVideos.size === 0) {
+        remoteVideo.classList.remove('has-remote');
       }
     });
 
@@ -473,30 +473,6 @@ async function initializeRTC(appId, token, userId) {
   }
 }
 
-async function joinChannel() {
-  try {
-    rtmChannel = rtmClient.createChannel(channelNameInput.value);
-
-    rtmChannel.on("ChannelMessage", (message, memberId) => {
-      displayChannelMessage(memberId, message.text);
-    });
-
-    rtmChannel.on("MemberJoined", (memberId) => {
-      displaySystemMessage(channelChatBox, `${memberId} joined the channel`);
-    });
-
-    rtmChannel.on("MemberLeft", (memberId) => {
-      displaySystemMessage(channelChatBox, `${memberId} left the channel`);
-    });
-
-    await rtmChannel.join();
-    updateChannelStatus("Connected to channel");
-    enableChannelControls(true);
-  } catch (error) {
-    console.error("Error joining channel:", error);
-    updateChannelStatus("Failed to join channel: " + error.message);
-  }
-}
 
 // UI Update Functions
 function updateLoginStatus(state) {
@@ -504,7 +480,6 @@ function updateLoginStatus(state) {
   if (state === "CONNECTED") {
     loginBtn.disabled = true;
     logoutBtn.disabled = false;
-    subscribeBtn.disabled = false;
   }
 }
 
@@ -513,8 +488,7 @@ function updateChannelStatus(message) {
 }
 
 function enableChannelControls(enabled) {
-  subscribeBtn.disabled = enabled;
-  unsubscribeBtn.disabled = !enabled;
+
   channelMsgInput.disabled = !enabled;
   sendChannelMsgBtn.disabled = !enabled;
 }
@@ -546,11 +520,105 @@ function displaySystemMessage(container, message) {
 // Modal Functions
 function showModal() {
   loginModal.style.display = "block";
+  // Remove loading state if it exists
+  document.querySelector('.modal-content').classList.remove('loading');
+  // Add blur effect to all content except modal
+  document.querySelectorAll('.container > *:not(.modal)').forEach(element => {
+    element.classList.add('blur-background');
+  });
 }
 
 function hideModal() {
   loginModal.style.display = "none";
+  // Remove loading state
+  document.querySelector('.modal-content').classList.remove('loading');
+  // Remove blur effect from all content
+  document.querySelectorAll('.blur-background').forEach(element => {
+    element.classList.remove('blur-background');
+  });
 }
+
+function showInviteModal() {
+  // Generate invite link with current channel
+  const currentUrl = window.location.href.split('?')[0];
+  const inviteUrl = `${currentUrl}?channel=${encodeURIComponent(channelNameInput.value)}`;
+  inviteLinkInput.value = inviteUrl;
+  
+  inviteModal.style.display = "block";
+  // Add blur effect to all content except modal
+  document.querySelectorAll('.container > *:not(.modal)').forEach(element => {
+    element.classList.add('blur-background');
+  });
+}
+
+function hideInviteModal() {
+  inviteModal.style.display = "none";
+  // Remove blur effect from all content
+  document.querySelectorAll('.blur-background').forEach(element => {
+    element.classList.remove('blur-background');
+  });
+}
+
+// Function to get URL parameters
+function getUrlParameter(name) {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get(name);
+}
+
+// Show modal when page loads
+document.addEventListener('DOMContentLoaded', () => {
+  // Check for URL parameters
+  const channelParam = getUrlParameter('channel');
+  const userParam = getUrlParameter('user');
+
+  // If channel parameter exists, set it and make input readonly
+  if (channelParam) {
+    channelNameInput.value = decodeURIComponent(channelParam);
+    channelNameInput.readOnly = true;
+  } else {
+    channelNameInput.readOnly = false;
+  }
+
+  // If user parameter exists, set it
+  if (userParam) {
+    userIdInput.value = decodeURIComponent(userParam);
+  }
+
+  // Validate login button state based on userId input
+  validateLoginButton();
+
+  // Add input event listener to userId input to validate button state
+  userIdInput.addEventListener('input', validateLoginButton);
+
+  showModal();
+});
+
+// Function to validate login button state
+function validateLoginButton() {
+  // Disable login button if userId is empty
+  loginBtn.disabled = userIdInput.value.trim() === '';
+}
+
+// Event Listeners for Invite Modal
+showLoginBtn.addEventListener("click", () => {
+  console.log("Meeting Settings button clicked");
+  console.log("showLoginBtn element:", showLoginBtn);
+  console.log("inviteModal element:", inviteModal);
+  showInviteModal();
+});
+closeInviteModalBtn.addEventListener("click", hideInviteModal);
+
+copyLinkBtn.addEventListener("click", () => {
+  inviteLinkInput.select();
+  document.execCommand("copy");
+  
+  // Show feedback
+  const originalText = copyLinkBtn.textContent;
+  copyLinkBtn.textContent = "Copied!";
+  setTimeout(() => {
+    copyLinkBtn.textContent = originalText;
+  }, 2000);
+});
 
 // Tab Functions
 function switchTab(tabId) {
@@ -562,16 +630,6 @@ function switchTab(tabId) {
     panel.classList.toggle("active", panel.id === `${tabId}Chat`);
   });
 }
-
-// Event Listeners for Modal
-showLoginBtn.addEventListener("click", showModal);
-closeModalBtn.addEventListener("click", hideModal);
-
-window.addEventListener("click", (event) => {
-  if (event.target === loginModal) {
-    hideModal();
-  }
-});
 
 // Event Listeners for Tabs
 tabBtns.forEach((btn) => {
@@ -591,6 +649,16 @@ function updateParticipantsList() {
   const participantsList = document.getElementById("participantsList");
   participantsList.innerHTML = "";
   
+  // Add local user first
+  const localUserElement = document.createElement("div");
+  localUserElement.className = "participant-item";
+  localUserElement.innerHTML = `
+    <span class="presence-indicator online"></span>
+    <span>${userIdInput.value} (You)</span>
+  `;
+  participantsList.appendChild(localUserElement);
+  
+  // Add remote participants
   participants.forEach((participant) => {
     const participantElement = document.createElement("div");
     participantElement.className = "participant-item";
@@ -681,10 +749,10 @@ function hideDeviceModal() {
 
 // Add event listeners for device modal
 showDeviceBtn.addEventListener("click", showDeviceModal);
-closeDeviceBtn.addEventListener("click", hideDeviceModal);
+//closeDeviceBtn.addEventListener("click", hideDeviceModal);
 
 // Add RTC control event listeners
-joinChannelBtn.addEventListener("click", async () => {
+async function joinChannel() {
   const channelName = channelNameInput.value.trim();
   if (!channelName) {
     alert("Please enter a channel name");
@@ -701,25 +769,24 @@ joinChannelBtn.addEventListener("click", async () => {
   try {
     // Create and publish tracks
     localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-    localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+    localVideoTrack = await AgoraRTC.createCameraVideoTrack({encoderConfig: "720p_3", scalabiltyMode: "3SL3TL"});
     
     // Play local video
     localVideoTrack.play(localVideo);
     
     // Join channel and publish tracks
-    await rtcClient.join(
-      appIdInput.value,
-      channelName,
-      tokenInput.value || null,
-      userIdInput.value
-    );
+    //await rtcClient.join(
+    //  appIdInput,
+    //  channelName,
+    //  null,
+    //  userIdInput.value
+    //);
     
     // Publish tracks
     await rtcClient.publish([localAudioTrack, localVideoTrack]);
     
     // Enable controls and set initial states
-    joinChannelBtn.disabled = true;
-    leaveChannelBtn.disabled = false;
+    logoutBtn.disabled = false;
     toggleVideoBtn.disabled = false;
     toggleAudioBtn.disabled = false;
     
@@ -727,15 +794,13 @@ joinChannelBtn.addEventListener("click", async () => {
     toggleVideoBtn.textContent = "Mute Video";
     toggleAudioBtn.textContent = "Mute Audio";
     
-    channelStatus.textContent = `Joined RTC channel: ${channelName}`;
-    addChatMessage(channelChatBox, `Joined RTC channel: ${channelName}`);
   } catch (err) {
     console.error("Failed to join RTC channel:", err);
     alert("Failed to join RTC channel. Please check your connection and try again.");
   }
-});
+};
 
-leaveChannelBtn.addEventListener("click", async () => {
+leaveMeetingBtn.addEventListener("click", async () => {
   if (!rtcClient) return;
   try {
     // Unpublish tracks
@@ -756,8 +821,7 @@ leaveChannelBtn.addEventListener("click", async () => {
     await rtcClient.leave();
     
     // Reset UI
-    joinChannelBtn.disabled = false;
-    leaveChannelBtn.disabled = true;
+    logoutBtn.disabled = true;
     toggleVideoBtn.disabled = true;
     toggleAudioBtn.disabled = true;
     

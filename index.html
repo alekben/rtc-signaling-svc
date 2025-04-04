@@ -13,17 +13,15 @@
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
       <div class="modal-content">
-        <h2>Login Settings</h2>
+        <h2>Meetings Settings</h2>
+        <div class="spinner"></div>
         <div class="input-group">
-          <label for="appId">App ID:</label>
-          <input id="appId" type="text" placeholder="Enter your Agora App ID" />
-        </div>
-        <div class="input-group">
-          <label for="token">Token (optional):</label>
+          <label for="channelName">Meeting Name:</label>
           <input
-            id="token"
+            id="channelName"
             type="text"
-            placeholder="Leave blank if no token required"
+            placeholder="Meeting Name"
+            readonly
           />
         </div>
         <div class="input-group">
@@ -31,27 +29,44 @@
           <input
             id="userId"
             type="text"
-            placeholder="A unique string for user ID"
           />
         </div>
         <div class="button-group">
-          <button id="loginBtn">Login</button>
-          <button id="closeModalBtn">Cancel</button>
+          <button id="loginBtn">Join Meeting</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Invite Modal -->
+    <div id="inviteModal" class="modal">
+      <div class="modal-content">
+        <h2>Invite to Meeting</h2>
+        <div class="input-group">
+          <label for="inviteLink">Meeting Link:</label>
+          <input
+            id="inviteLink"
+            type="text"
+            readonly
+          />
+        </div>
+        <div class="button-group">
+          <button id="copyLinkBtn">Copy Link</button>
+          <button id="closeInviteModalBtn">Close</button>
         </div>
       </div>
     </div>
 
     <div class="container">
       <header>
-        <h1>Agora RTC & Signaling (RTM) Demo</h1>
+        <h1>Agora VP9 SVC Group Video Chat</h1>
         <div class="header-controls">
           <div class="login-status">
             <span id="loginStatus" class="status-text">Not logged in</span>
             <span id="presenceIndicator" class="presence-indicator"></span>
           </div>
-          <button id="showLoginBtn">Login Settings</button>
+          <button id="showLoginBtn">Meeting Settings</button>
           <button id="showDeviceBtn">Device Settings</button>
-          <button id="logoutBtn" disabled>Logout</button>
+          <button id="logoutBtn" disabled>Leave Meeting</button>
         </div>
       </header>
 
@@ -78,8 +93,6 @@
         <section class="video-section">
           <div class="video-container">
             <div class="video-controls">
-              <button id="joinChannelBtn" disabled>Join Channel</button>
-              <button id="leaveChannelBtn" disabled>Leave Channel</button>
               <button id="toggleAudioBtn" disabled>Mute Audio</button>
               <button id="toggleVideoBtn" disabled>Mute Video</button>
             </div>
@@ -92,21 +105,6 @@
         </section>
         
         <div class="chat-section">
-          <div class="channel-controls">
-            <div class="input-group">
-              <label for="channelName">Channel:</label>
-              <input
-                id="channelName"
-                type="text"
-                placeholder="E.g., testChannel"
-              />
-            </div>
-            <div class="button-group">
-              <button id="subscribeBtn" disabled>Subscribe</button>
-              <button id="unsubscribeBtn" disabled>Unsubscribe</button>
-            </div>
-            <p id="channelStatus" class="status-text"></p>
-          </div>
 
           <div class="chat-container">
             <div class="chat-tabs">
