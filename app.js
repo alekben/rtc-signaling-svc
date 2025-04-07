@@ -140,6 +140,8 @@ loginBtn.addEventListener("click", async () => {
     return;
   }
 
+  
+
   try {
     // Show loading state
     document.querySelector('.modal-content').classList.add('loading');
@@ -589,6 +591,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Add input event listener to userId input to validate button state
   userIdInput.addEventListener('input', validateLoginButton);
+  channelNameInput.addEventListener('input', () => {
+    // Replace spaces with underscores in channel name
+    channelNameInput.value = channelNameInput.value.replace(/\s+/g, '_');
+    validateLoginButton();
+  });
 
   showModal();
 });
@@ -596,14 +603,12 @@ document.addEventListener('DOMContentLoaded', () => {
 // Function to validate login button state
 function validateLoginButton() {
   // Disable login button if userId is empty
+  loginBtn.disabled = channelNameInput.value.trim() === '';
   loginBtn.disabled = userIdInput.value.trim() === '';
 }
 
 // Event Listeners for Invite Modal
 showLoginBtn.addEventListener("click", () => {
-  console.log("Meeting Settings button clicked");
-  console.log("showLoginBtn element:", showLoginBtn);
-  console.log("inviteModal element:", inviteModal);
   showInviteModal();
 });
 closeInviteModalBtn.addEventListener("click", hideInviteModal);
@@ -749,7 +754,7 @@ function hideDeviceModal() {
 
 // Add event listeners for device modal
 showDeviceBtn.addEventListener("click", showDeviceModal);
-//closeDeviceBtn.addEventListener("click", hideDeviceModal);
+closeDeviceBtn.addEventListener("click", hideDeviceModal);
 
 // Add RTC control event listeners
 async function joinChannel() {
