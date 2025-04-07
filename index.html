@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>RTC & Signaling</title>
+    <title>VP9 SVCRTC & Signaling</title>
     <link rel="stylesheet" href="./style.css" />
     <!-- Load RTC SDK -->
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
@@ -13,7 +13,7 @@
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
       <div class="modal-content">
-        <h2>Invite Link</h2>
+        <h2>Meeting Settings</h2>
         <div class="spinner"></div>
         <div class="input-group">
           <label for="channelName">Meeting Name:</label>
@@ -63,7 +63,7 @@
             <span id="loginStatus" class="status-text">Not logged in</span>
             <span id="presenceIndicator" class="presence-indicator"></span>
           </div>
-          <button id="showLoginBtn">Meeting Settings</button>
+          <button id="showLoginBtn">Invite Link</button>
           <button id="showDeviceBtn">Device Settings</button>
           <button id="logoutBtn" disabled>Leave Meeting</button>
         </div>
