@@ -90,21 +90,91 @@
       <div class="main-content">
         <!-- Video Section -->
         <section class="video-section">
+          <div class="stats-display">
+            <div class="stat-item">
+              <span class="stat-value" id="totalRx">0</span>
+              <span class="stat-label">Total Rx</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="totalTx">0</span>
+              <span class="stat-label">Total Tx</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="bwe">0</span>
+              <span class="stat-label">BWE</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="netQUp">0</span>
+              <span class="stat-label">NetQ Up</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="netQDown">0</span>
+              <span class="stat-label">NetQ Down</span>
+            </div>
+          </div>
           <div class="video-container">
             <div class="video-controls">
               <button id="toggleAudioBtn" disabled>Mute Audio</button>
               <button id="toggleVideoBtn" disabled>Mute Video</button>
+              <button id="setLayersBtn" disabled>Set Layers</button>
+              <select id="sLayerSelect" disabled>
+                <option value="0">S0</option>
+                <option value="1">S1</option>
+                <option value="2">S2</option>
+                <option value="3">S3</option>
+              </select>
+              <select id="tLayerSelect" disabled>
+                <option value="0">T0</option>
+                <option value="1">T1</option>
+                <option value="2">T2</option>
+                <option value="3">T3</option>
+              </select>
+              <select id="userIdSelect" disabled>
+                <option value="ALL">ALL</option>
+              </select>
             </div>
             <div class="video-box">
-              <div id="localVideo" class="video-player"></div>
-              <div id="remoteVideo" class="video-player"></div>
+              <div id="localVideo" class="video-player">
+                <div class="video-stats-overlay">
+                  <div class="stat-row">
+                    <span class="stat-label">FPS:</span>
+                    <span class="stat-value" id="localFPS">0</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">Res:</span>
+                    <span class="stat-value" id="localRes">0x0</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">Bitrate:</span>
+                    <span class="stat-value" id="localBitrate">0 Mbps</span>
+                  </div>
+                </div>
+              </div>
+              <div id="remoteVideo" class="video-player">
+                <div class="video-stats-overlay">
+                  <div class="stat-row">
+                    <span class="stat-label">FPS:</span>
+                    <span class="stat-value" id="remoteFPS">0</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">Res:</span>
+                    <span class="stat-value" id="remoteRes">0x0</span>
+                  </div>
+                  <div class="stat-row">
+                    <span class="stat-label">Bitrate:</span>
+                    <span class="stat-value" id="remoteBitrate">0 Mbps</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div id="additionalVideos" class="video-box"></div>
           </div>
         </section>
         
         <div class="chat-section">
-
+          <button id="toggleChatBtn" class="toggle-chat-btn">
+            <span class="toggle-icon">◀</span>
+          </button>
           <div class="chat-container">
             <div class="chat-tabs">
               <button class="tab-btn active" data-tab="channel">

@@ -12,11 +12,20 @@ let localVideoTrack = null;
 let localInbox = ""; // "inbox_userX"
 let subscribedChannel = null; // e.g. "testChannel"
 
+var localNetQuality = { uplink: 0, downlink: 0 };
+let statsInterval = null;
+
 // DOM elements
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const sendChannelMsgBtn = document.getElementById("sendChannelMsgBtn");
 const sendPeerMsgBtn = document.getElementById("sendPeerMsgBtn");
+const toggleAudioBtn = document.getElementById("toggleAudioBtn");
+const toggleVideoBtn = document.getElementById("toggleVideoBtn");
+const setLayersBtn = document.getElementById("setLayersBtn");
+const sLayerSelect = document.getElementById("sLayerSelect");
+const tLayerSelect = document.getElementById("tLayerSelect");
+const userIdSelect = document.getElementById("userIdSelect");
 
 const appIdInput = "a9a4b25e4e8b4a558aa39780d1a84342";
 
@@ -51,7 +60,7 @@ const chatPanels = document.querySelectorAll(".chat-panel");
 const rtmConfig = {
   presenceTimeout: 30, // in seconds
   logUpload: false,
-  logLevel: "debug",
+  logLevel: "info",
   cloudProxy: false,
   useStringUserId: true,
 };
@@ -117,13 +126,15 @@ function updateVideoLabels() {
 
 // Add new RTC control buttons
 const leaveMeetingBtn = document.getElementById("logoutBtn");
-const toggleAudioBtn = document.getElementById("toggleAudioBtn");
-const toggleVideoBtn = document.getElementById("toggleVideoBtn");
 
 /** Append text message in any chatbox. */
 function addChatMessage(container, text) {
   const div = document.createElement("div");
   div.className = "chat-message";
+  if (text.includes("[System]")) {
+    // System messages
+    div.classList.add("message-system");
+  }
   div.textContent = text;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
@@ -181,6 +192,8 @@ loginBtn.addEventListener("click", async () => {
     //set vp9 svc
     AgoraRTC.setParameter("SVC",["vp9"]);
     AgoraRTC.setParameter("ENABLE_AUT_CC", true);
+    AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 200);
+    AgoraRTC.setParameter("EXPERIMENTS", {"netqSensitivityMode": 1});
 
     // Initialize RTC only after successful RTM login
     await initializeRTC(appId, token, userId);
@@ -217,12 +230,17 @@ logoutBtn.addEventListener("click", async () => {
       await rtcClient.leave();
     }
 
+    destructStats();
     // Reset state
     rtmClient = null;
     rtcClient = null;
     participants.clear();
     updateParticipantsList();
     updatePresenceIndicator(false);
+
+    // Clear chat boxes
+    channelChatBox.innerHTML = '';
+    peerChatBox.innerHTML = '';
 
     // Hide remote video container
     remoteVideo.classList.remove('has-remote');
@@ -399,6 +417,7 @@ async function initializeRTC(appId, token, userId) {
       // Show remote video container when first user publishes
       if (!remoteVideo.classList.contains('has-remote')) {
         remoteVideo.classList.add('has-remote');
+        updateLayerControls(true);
       }
       
       // Create or get video element for this user
@@ -461,6 +480,12 @@ async function initializeRTC(appId, token, userId) {
       }
     });
 
+    rtcClient.on("network-quality", (stats) => {
+      localNetQuality.uplink = stats.uplinkNetworkQuality;
+      localNetQuality.downlink = stats.downlinkNetworkQuality;
+    });
+
+
     // Only join if we have a channel name
     if (channelNameInput.value.trim()) {
       await rtcClient.join(appId, channelNameInput.value, token, userId);
@@ -472,6 +497,10 @@ async function initializeRTC(appId, token, userId) {
         "UID conflict detected. Please log out and try again with a different user ID."
       );
     }
+  } finally {
+    initStats();
+    rtcClient.enableAudioVolumeIndicator();
+    rtcClient.on("volume-indicator", handleVolumeIndicator);
   }
 }
 
@@ -590,7 +619,11 @@ document.addEventListener('DOMContentLoaded', () => {
   validateLoginButton();
 
   // Add input event listener to userId input to validate button state
-  userIdInput.addEventListener('input', validateLoginButton);
+  userIdInput.addEventListener('input', () => {
+        // Replace spaces with underscores in user id
+    userIdInput.value = userIdInput.value.replace(/\s+/g, '_');
+    validateLoginButton();
+  });
   channelNameInput.addEventListener('input', () => {
     // Replace spaces with underscores in channel name
     channelNameInput.value = channelNameInput.value.replace(/\s+/g, '_');
@@ -756,6 +789,16 @@ function hideDeviceModal() {
 showDeviceBtn.addEventListener("click", showDeviceModal);
 closeDeviceBtn.addEventListener("click", hideDeviceModal);
 
+// Add event listener for toggle chat button
+const toggleChatBtn = document.getElementById("toggleChatBtn");
+const chatSection = document.querySelector(".chat-section");
+const mainContent = document.querySelector(".main-content");
+
+toggleChatBtn.addEventListener("click", () => {
+  chatSection.classList.toggle("collapsed");
+  mainContent.classList.toggle("expanded");
+});
+
 // Add RTC control event listeners
 async function joinChannel() {
   const channelName = channelNameInput.value.trim();
@@ -829,6 +872,7 @@ leaveMeetingBtn.addEventListener("click", async () => {
     logoutBtn.disabled = true;
     toggleVideoBtn.disabled = true;
     toggleAudioBtn.disabled = true;
+    updateLayerControls(false);
     
     channelStatus.textContent = "Left RTC channel";
     addChatMessage(channelChatBox, "Left RTC channel");
@@ -891,4 +935,300 @@ function updateVideoGrid() {
     const [userId, video] = remoteUsers[i];
     additionalVideosContainer.appendChild(video);
   }
+}
+
+//volume indicator
+function handleVolumeIndicator(volumes) {
+  // Find the volume with the highest level
+  const maxVolume = volumes.reduce((max, current) => {
+    return current.level > max.level ? current : max;
+  }, { level: -1 });
+
+  console.log(`max volume as ${maxVolume.uid} and ${maxVolume.level}`);
+
+  // Clear highlights from all video elements
+  remoteVideos.forEach((video, userId) => {
+    video.style.boxShadow = 'none';
+  });
+  localVideo.style.boxShadow = 'none';
+
+  // If we found a volume with a level > -1, highlight its video element
+  if (maxVolume.level > -1) {
+    if (maxVolume.uid === userIdInput.value) {
+      localVideo.style.boxShadow = '0 0 0 3px white';
+    } else {    
+      const videoElement = remoteVideos.get(maxVolume.uid);
+      if (videoElement) {
+        videoElement.style.boxShadow = '0 0 0 3px white';
+      }
+    }
+  }
+}
+
+// stats collection start
+function initStats() {
+  statsInterval = setInterval(flushStats, 1000);
+}
+
+// stats collection stop
+function destructStats() {
+  clearInterval(statsInterval);
+}
+
+function flushStats() {
+  // get the client stats message
+  const clientStats = rtcClient.getRTCStats();
+  const clientStatsList = [
+    {
+      description: "Total Rx",
+      value: (Number(clientStats.RecvBitrate) * 0.000001).toFixed(4),
+      unit: "Mbps",
+      elementId: "totalRx"
+    },
+    {
+      description: "Total Tx",
+      value: (Number(clientStats.SendBitrate) * 0.000001).toFixed(4),
+      unit: "Mbps",
+      elementId: "totalTx"
+    },
+    {
+      description: "BWE",
+      value: (Number(clientStats.OutgoingAvailableBandwidth) * 0.001).toFixed(4),
+      unit: "Mbps",
+      elementId: "bwe"
+    },
+    {
+      description: "NetQ Up",
+      value: localNetQuality.uplink,
+      unit: "",
+      elementId: "netQUp"
+    },
+    {
+      description: "NetQ Down",
+      value: localNetQuality.downlink,
+      unit: "",
+      elementId: "netQDown"
+    }
+  ];
+
+  // Update each stat element
+  clientStatsList.forEach(stat => {
+    const element = document.getElementById(stat.elementId);
+    if (element) {
+      element.textContent = `${stat.value}${stat.unit}`;
+    }
+  });
+
+  const localStats = {
+    video: rtcClient.getLocalVideoStats(),
+  };
+  const localStatsList = [
+    {
+      description: "FPS",
+      value: localStats.video?.sendFrameRate ?? 0,
+      unit: "",
+      elementId: "localFPS"
+    },
+    {
+      description: "Height",
+      value: localStats.video?.sendResolutionHeight ?? 0,
+      unit: "",
+      elementId: "localRes"
+    },
+    {
+      description: "Width",
+      value: localStats.video?.sendResolutionWidth ?? 0,
+      unit: "",
+      elementId: "localRes"
+    },
+    {
+      description: "Bitrate",
+      value: (Number(localStats.video?.sendBitrate) * 0.000001).toFixed(4) ?? 0,
+      unit: "Mbps",
+      elementId: "localBitrate"
+    }
+  ];
+
+  // Update local video stats
+  localStatsList.forEach(stat => {
+    const element = document.getElementById(stat.elementId);
+    if (element) {
+      if (stat.elementId === "localRes") {
+        // Special handling for resolution to combine width and height
+        const width = localStats.video?.sendResolutionWidth ?? 0;
+        const height = localStats.video?.sendResolutionHeight ?? 0;
+        element.textContent = `${width}x${height}`;
+      } else {
+        element.textContent = `${stat.value}${stat.unit}`;
+      }
+    }
+  });
+
+  remoteVideos.forEach((video, userId) => {
+    // get the remote track stats message
+    const remoteTracksStats = {
+      video: rtcClient.getRemoteVideoStats()[userId]
+    };
+    const remoteTracksStatsList = [
+      {
+        description: "FPS",
+        value: remoteTracksStats.video?.renderFrameRate ?? 0,
+        unit: "",
+        elementId: `remoteFPS-${userId}`
+      },
+      {
+        description: "Height",
+        value: remoteTracksStats.video?.receiveResolutionHeight ?? 0,
+        unit: "",
+        elementId: `remoteRes-${userId}`
+      },
+      {
+        description: "Width",
+        value: remoteTracksStats.video?.receiveResolutionWidth ?? 0,
+        unit: "",
+        elementId: `remoteRes-${userId}`
+      },
+      {
+        description: "Bitrate",
+        value: (Number(remoteTracksStats.video?.receiveBitrate) * 0.000001).toFixed(4) ?? 0,
+        unit: "Mbps",
+        elementId: `remoteBitrate-${userId}`
+      }
+    ];
+
+    // Create or update the stats overlay for this remote video
+    let statsOverlay = video.querySelector('.video-stats-overlay');
+    if (!statsOverlay) {
+      statsOverlay = document.createElement('div');
+      statsOverlay.className = 'video-stats-overlay';
+      statsOverlay.innerHTML = `
+        <div class="stat-row">
+          <span class="stat-label">FPS:</span>
+          <span class="stat-value" id="remoteFPS-${userId}">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Res:</span>
+          <span class="stat-value" id="remoteRes-${userId}">0x0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Bitrate:</span>
+          <span class="stat-value" id="remoteBitrate-${userId}">0 Mbps</span>
+        </div>
+      `;
+      video.appendChild(statsOverlay);
+    }
+
+    // Update the stats values
+    remoteTracksStatsList.forEach(stat => {
+      const element = document.getElementById(stat.elementId);
+      if (element) {
+        if (stat.elementId.includes('remoteRes')) {
+          // Special handling for resolution to combine width and height
+          const width = remoteTracksStats.video?.receiveResolutionWidth ?? 0;
+          const height = remoteTracksStats.video?.receiveResolutionHeight ?? 0;
+          element.textContent = `${width}x${height}`;
+        } else {
+          element.textContent = `${stat.value}${stat.unit}`;
+        }
+      }
+    });
+  });
+}
+
+//svc layer switching
+
+async function changeSLayer() {
+  //get value of of uid-input
+  const id = Number($(".uid-input").val());
+  //get value of s layer to use
+  const valLayer = Number($(".s-input").val());
+  layers[id].spatialLayer = valLayer;
+  client.pickSVCLayer(id, {spatialLayer: layers[id].spatialLayer, temporalLayer: layers[id].temporalLayer});
+  console.log(`Setting S${layers[id].spatialLayer} T${layers[id].temporalLayer} for UID ${id}`);
+}
+
+async function changeTLayer() {
+  //get value of of uid-input
+  const id = Number($(".uid-input").val());
+  //get value of s layer to use
+  const valLayer = Number($(".t-input").val());
+  layers[id].temporalLayer = valLayer;
+  client.pickSVCLayer(id, {spatialLayer: layers[id].spatialLayer, temporalLayer: layers[id].temporalLayer});
+  console.log(`Setting S${layers[id].spatialLayer} T${layers[id].temporalLayer} for UID ${id}`);
+}
+
+async function changeBothLayers() {
+  const sLayer = Number(sLayerSelect.value);
+  const tLayer = Number(tLayerSelect.value);
+  const selectedUserId = userIdSelect.value;
+
+  if (selectedUserId === 'ALL') {
+    // Apply to all remote users
+    for (const [userId, video] of remoteVideos) {
+      try {
+        await rtcClient.pickSVCLayer(userId, { spatialLayer: sLayer, temporalLayer: tLayer });
+        console.log(`Setting S${sLayer} T${tLayer} for UID ${userId}`);
+      } catch (error) {
+        console.error(`Failed to set layers for UID ${userId}:`, error);
+      }
+    }
+  } else {
+    // Apply to single user
+    try {
+      await rtcClient.pickSVCLayer(selectedUserId, { spatialLayer: sLayer, temporalLayer: tLayer });
+      console.log(`Setting S${sLayer} T${tLayer} for UID ${selectedUserId}`);
+    } catch (error) {
+      console.error(`Failed to set layers for UID ${selectedUserId}:`, error);
+    }
+  }
+}
+
+// Add event listener for setLayersBtn
+setLayersBtn.addEventListener('click', changeBothLayers);
+
+// Update the userIdSelect when remote videos change
+const originalSet = remoteVideos.set;
+remoteVideos.set = function(key, value) {
+  originalSet.call(this, key, value);
+  updateUserIdSelect();
+};
+
+const originalDelete = remoteVideos.delete;
+remoteVideos.delete = function(key) {
+  originalDelete.call(this, key);
+  updateUserIdSelect();
+};
+
+// Enable/disable layer controls based on connection state
+function updateLayerControls(enabled) {
+  setLayersBtn.disabled = !enabled;
+  sLayerSelect.disabled = !enabled;
+  tLayerSelect.disabled = !enabled;
+  userIdSelect.disabled = !enabled;
+}
+
+// Call updateLayerControls when appropriate (e.g., after joining channel)
+// ... existing code ...
+
+// Update the userIdSelect dropdown when remote users change
+function updateUserIdSelect() {
+  const currentOptions = Array.from(userIdSelect.options).map(opt => opt.value);
+  const remoteUserIds = Array.from(remoteVideos.keys());
+  
+  // Remove options that are no longer in remoteVideos (except ALL)
+  Array.from(userIdSelect.options).forEach(opt => {
+    if (opt.value !== 'ALL' && !remoteUserIds.includes(opt.value)) {
+      userIdSelect.removeChild(opt);
+    }
+  });
+  
+  // Add new options for users in remoteVideos
+  remoteUserIds.forEach(userId => {
+    if (!currentOptions.includes(userId)) {
+      const option = document.createElement('option');
+      option.value = userId;
+      option.textContent = userId;
+      userIdSelect.appendChild(option);
+    }
+  });
 }
