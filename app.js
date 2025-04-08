@@ -950,7 +950,7 @@ function handleVolumeIndicator(volumes) {
     return current.level > max.level ? current : max;
   }, { level: -1 });
 
-  console.log(`max volume as ${maxVolume.uid} and ${maxVolume.level}`);
+  //console.log(`max volume as ${maxVolume.uid} and ${maxVolume.level}`);
 
   // Clear highlights from all video elements
   remoteVideos.forEach((video, userId) => {
