@@ -817,7 +817,13 @@ async function joinChannel() {
   try {
     // Create and publish tracks
     localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-    localVideoTrack = await AgoraRTC.createCameraVideoTrack({encoderConfig: "720p_3", scalabiltyMode: "3SL3TL"});
+    localVideoTrack = await AgoraRTC.createCameraVideoTrack({encoderConfig: {
+      width:1280,
+      height:720,
+      frameRate:30,
+      bitrateMin:600,
+      bitrateMax:1500
+    }, scalabiltyMode: "3SL3TL"});
     
     // Play local video
     localVideoTrack.play(localVideo);
