@@ -190,8 +190,9 @@ loginBtn.addEventListener("click", async () => {
     await subscribeRTM();
 
     //set vp9 svc
-    AgoraRTC.setParameter("SVC",["vp9"]);
-    AgoraRTC.setParameter("ENABLE_AUT_CC", true);
+    AgoraRTC.setParameter("ENABLE_SVC", true);
+    AgoraRTC.setParameter("SVC_MODE", "L3T3_KEY")
+    AgoraRTC.setParameter('EXPERIMENTS', { FeedbackConfig: 1 });
     AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 200);
     AgoraRTC.setParameter("EXPERIMENTS", {"netqSensitivityMode": 1});
 
@@ -821,8 +822,8 @@ async function joinChannel() {
       width:1280,
       height:720,
       frameRate:30,
-      bitrateMin:600,
-      bitrateMax:1500
+      bitrateMin:100,
+      bitrateMax:2000
     }, scalabiltyMode: "3SL3TL"});
     
     // Play local video
