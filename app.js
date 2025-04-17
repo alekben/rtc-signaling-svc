@@ -192,9 +192,8 @@ loginBtn.addEventListener("click", async () => {
     //set vp9 svc
     AgoraRTC.setParameter("ENABLE_SVC", true);
     AgoraRTC.setParameter("SVC_MODE", "L3T3_KEY")
-    AgoraRTC.setParameter('EXPERIMENTS', { FeedbackConfig: 1 });
     AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 200);
-    AgoraRTC.setParameter("EXPERIMENTS", {"netqSensitivityMode": 1});
+    AgoraRTC.setParameter("EXPERIMENTS", {"netqSensitivityMode": 1, "FeedbackConfig": 1});
 
     // Initialize RTC only after successful RTM login
     await initializeRTC(appId, token, userId);
