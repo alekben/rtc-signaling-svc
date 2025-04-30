@@ -22,6 +22,8 @@ const sendChannelMsgBtn = document.getElementById("sendChannelMsgBtn");
 const sendPeerMsgBtn = document.getElementById("sendPeerMsgBtn");
 const toggleAudioBtn = document.getElementById("toggleAudioBtn");
 const toggleVideoBtn = document.getElementById("toggleVideoBtn");
+const pipBtn = document.getElementById("pipBtn");
+const pipContainer = document.getElementById("pipContainer");
 const setLayersBtn = document.getElementById("setLayersBtn");
 const sLayerSelect = document.getElementById("sLayerSelect");
 const tLayerSelect = document.getElementById("tLayerSelect");
@@ -253,6 +255,13 @@ logoutBtn.addEventListener("click", async () => {
 
     // Show login modal
     showModal();
+
+    // Clean up PiP
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+    }
+    pipContainer.style.display = 'none';
+    pipContainer.innerHTML = '';
   } catch (err) {
     console.error("Logout error:", err);
   }
@@ -828,6 +837,9 @@ async function joinChannel() {
     // Play local video
     localVideoTrack.play(localVideo);
     
+    // Initialize PiP
+    initPip();
+    
     // Join channel and publish tracks
     //await rtcClient.join(
     //  appIdInput,
@@ -1238,3 +1250,53 @@ function updateUserIdSelect() {
     }
   });
 }
+
+// Initialize PiP functionality
+function initPip() {
+  // Check if browser supports PiP
+  if (document.pictureInPictureEnabled) {
+    pipBtn.disabled = false;
+    pipBtn.addEventListener('click', togglePip);
+    pipContainer.addEventListener('click', exitPip);
+  } else {
+    pipBtn.style.display = 'none';
+  }
+}
+
+async function togglePip() {
+  if (!localVideoTrack) return;
+
+  if (document.pictureInPictureElement) {
+    await document.exitPictureInPicture();
+  } else {
+    // Create a new video element for PiP
+    const pipVideo = document.createElement('video');
+    pipVideo.srcObject = localVideoTrack.getMediaStream();
+    pipVideo.autoplay = true;
+    pipVideo.muted = true;
+    
+    // Clear previous content and add new video
+    pipContainer.innerHTML = '';
+    pipContainer.appendChild(pipVideo);
+    pipContainer.style.display = 'block';
+    
+    try {
+      await pipVideo.requestPictureInPicture();
+    } catch (error) {
+      console.error('Error entering PiP mode:', error);
+      pipContainer.style.display = 'none';
+    }
+  }
+}
+
+function exitPip() {
+  if (document.pictureInPictureElement) {
+    document.exitPictureInPicture();
+  }
+  pipContainer.style.display = 'none';
+}
+
+// Add PiP event listeners
+document.addEventListener('leavepictureinpicture', () => {
+  pipContainer.style.display = 'none';
+});
