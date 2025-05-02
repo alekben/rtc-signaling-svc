@@ -1289,6 +1289,37 @@ async function togglePip() {
   }
 }
 
+// Add new function for mobile PiP
+async function requestPictureInPicture() {
+  if (!document.pictureInPictureEnabled) {
+    return Promise.resolve(false);
+  }
+
+  // Find the primary remote user's video
+  const primary = Array.from(remoteVideos.entries()).find(([userId, video]) => {
+    const videoElement = video.querySelector('video');
+    return videoElement && videoElement.srcObject;
+  });
+
+  if (!primary) {
+    return Promise.resolve(false);
+  }
+
+  const [userId, videoContainer] = primary;
+  const video = videoContainer.querySelector('video');
+  if (!video) {
+    return Promise.resolve(false);
+  }
+
+  try {
+    await video.requestPictureInPicture();
+    return true;
+  } catch (error) {
+    console.error('Error entering PiP mode:', error);
+    return false;
+  }
+}
+
 function exitPip() {
   if (document.pictureInPictureElement) {
     document.exitPictureInPicture();
