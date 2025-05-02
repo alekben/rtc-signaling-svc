@@ -1251,13 +1251,40 @@ function updateUserIdSelect() {
   });
 }
 
+// Add tracking variable for PiP source
+let pipTriggeredByButton = false;
+
 // Initialize PiP functionality
 function initPip() {
   // Check if browser supports PiP
   if (document.pictureInPictureEnabled) {
     pipBtn.disabled = false;
-    pipBtn.addEventListener('click', togglePip);
+    pipBtn.addEventListener('click', () => {
+      pipTriggeredByButton = true;
+      togglePip();
+    });
     pipContainer.addEventListener('click', exitPip);
+
+    // Add visibility change listener for automatic PiP
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden) {
+        // App is being minimized/swiped away
+        const remoteVideo = document.querySelector('#remoteVideo video');
+        if (remoteVideo && remoteVideo.srcObject) {
+          try {
+            await remoteVideo.requestPictureInPicture();
+            pipTriggeredByButton = false; // Mark as auto-triggered
+          } catch (error) {
+            console.error('Error entering PiP mode with remote video:', error);
+          }
+        }
+      } else if (!pipTriggeredByButton) {
+        // App is visible again and PiP was auto-triggered
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        }
+      }
+    });
   } else {
     pipBtn.style.display = 'none';
   }
@@ -1268,6 +1295,7 @@ async function togglePip() {
 
   if (document.pictureInPictureElement) {
     await document.exitPictureInPicture();
+    pipTriggeredByButton = false;
   } else {
     // Try to find a remote video first for mobile PiP
     const remoteVideo = document.querySelector('#remoteVideo video');
@@ -1302,6 +1330,7 @@ async function togglePip() {
 function exitPip() {
   if (document.pictureInPictureElement) {
     document.exitPictureInPicture();
+    pipTriggeredByButton = false;
   }
   pipContainer.style.display = 'none';
 }
