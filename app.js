@@ -1295,17 +1295,13 @@ async function requestPictureInPicture() {
     return Promise.resolve(false);
   }
 
-  // Find the primary remote user's video
-  const primary = Array.from(remoteVideos.entries()).find(([userId, video]) => {
-    const videoElement = video.querySelector('video');
-    return videoElement && videoElement.srcObject;
-  });
-
-  if (!primary) {
+  // Get the first remote video
+  const remoteVideosArray = Array.from(remoteVideos.entries());
+  if (remoteVideosArray.length === 0) {
     return Promise.resolve(false);
   }
 
-  const [userId, videoContainer] = primary;
+  const [userId, videoContainer] = remoteVideosArray[0];
   const video = videoContainer.querySelector('video');
   if (!video) {
     return Promise.resolve(false);
