@@ -1269,13 +1269,23 @@ async function togglePip() {
   if (document.pictureInPictureElement) {
     await document.exitPictureInPicture();
   } else {
-    // Create a new video element for PiP
+    // Try to find a remote video first for mobile PiP
+    const remoteVideo = document.querySelector('#remoteVideo video');
+    if (remoteVideo && remoteVideo.srcObject) {
+      try {
+        await remoteVideo.requestPictureInPicture();
+        return;
+      } catch (error) {
+        console.error('Error entering PiP mode with remote video:', error);
+      }
+    }
+
+    // Fall back to local video if remote video PiP fails
     const pipVideo = document.createElement('video');
     pipVideo.srcObject = localVideoTrack.getMediaStream();
     pipVideo.autoplay = true;
     pipVideo.muted = true;
     
-    // Clear previous content and add new video
     pipContainer.innerHTML = '';
     pipContainer.appendChild(pipVideo);
     pipContainer.style.display = 'block';
@@ -1286,33 +1296,6 @@ async function togglePip() {
       console.error('Error entering PiP mode:', error);
       pipContainer.style.display = 'none';
     }
-  }
-}
-
-// Add new function for mobile PiP
-async function requestPictureInPicture() {
-  if (!document.pictureInPictureEnabled) {
-    return Promise.resolve(false);
-  }
-
-  // Get the first remote video
-  const remoteVideosArray = Array.from(remoteVideos.entries());
-  if (remoteVideosArray.length === 0) {
-    return Promise.resolve(false);
-  }
-
-  const [userId, videoContainer] = remoteVideosArray[0];
-  const video = videoContainer.querySelector('video');
-  if (!video) {
-    return Promise.resolve(false);
-  }
-
-  try {
-    await video.requestPictureInPicture();
-    return true;
-  } catch (error) {
-    console.error('Error entering PiP mode:', error);
-    return false;
   }
 }
 
