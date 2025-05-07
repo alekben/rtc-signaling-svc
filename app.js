@@ -1303,6 +1303,7 @@ async function togglePip() {
   if (screenShareVideo && screenShareVideo.srcObject) {
     try {
       await screenShareVideo.requestPictureInPicture();
+      pipContainer.style.display = 'none'; // Hide after entering PiP
       return;
     } catch (error) {
       console.error('Error entering PiP mode with screen share:', error);
@@ -1314,6 +1315,7 @@ async function togglePip() {
   if (remoteVideo && remoteVideo.srcObject) {
     try {
       await remoteVideo.requestPictureInPicture();
+      pipContainer.style.display = 'none'; // Hide after entering PiP
       return;
     } catch (error) {
       console.error('Error entering PiP mode with remote video:', error);
@@ -1322,52 +1324,43 @@ async function togglePip() {
 
   // Try local video as a last resort
   try {
-    // Get the media stream track from the local video track
     const mediaStreamTrack = localVideoTrack.getMediaStreamTrack();
     if (mediaStreamTrack) {
-      // Create a new MediaStream with the track
       const mediaStream = new MediaStream([mediaStreamTrack]);
-      
-      // Create a video element for PiP
       const pipVideo = document.createElement('video');
       pipVideo.srcObject = mediaStream;
       pipVideo.autoplay = true;
       pipVideo.muted = true;
-      
-      // Wait for metadata to load before requesting PiP
       await new Promise((resolve, reject) => {
         pipVideo.onloadedmetadata = resolve;
         pipVideo.onerror = reject;
-        // Set a timeout in case the video never loads
         setTimeout(reject, 5000);
       });
-      
-      // Clear and update the PiP container
       pipContainer.innerHTML = '';
       pipContainer.appendChild(pipVideo);
       pipContainer.style.display = 'block';
-      
-      // Request PiP
       await pipVideo.requestPictureInPicture();
+      pipContainer.style.display = 'none'; // Hide after entering PiP
       return;
     }
   } catch (error) {
     console.error('Error trying to use local video for PiP:', error);
   }
 
-  // If we get here, no suitable video was found for PiP
   alert('Picture-in-Picture is only available for remote video or screen sharing content.');
 }
 
-function exitPip() {
+async function exitPip() {
   if (document.pictureInPictureElement) {
-    document.exitPictureInPicture();
+    await document.exitPictureInPicture();
     pipTriggeredByButton = false;
   }
   pipContainer.style.display = 'none';
+  pipContainer.innerHTML = '';
 }
 
 // Add PiP event listeners
 document.addEventListener('leavepictureinpicture', () => {
   pipContainer.style.display = 'none';
+  pipContainer.innerHTML = '';
 });
