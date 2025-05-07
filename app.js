@@ -1339,6 +1339,11 @@ async function togglePip() {
       pipContainer.innerHTML = '';
       pipContainer.appendChild(pipVideo);
       pipContainer.style.display = 'block';
+
+      // Wait for the video to start playing and render a frame
+      await pipVideo.play();
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay to allow rendering
+
       await pipVideo.requestPictureInPicture();
       pipContainer.style.display = 'none'; // Hide after entering PiP
       return;
