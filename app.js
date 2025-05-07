@@ -1294,37 +1294,69 @@ async function togglePip() {
   if (!localVideoTrack) return;
 
   if (document.pictureInPictureElement) {
-    await document.exitPictureInPicture();
-    pipTriggeredByButton = false;
-  } else {
-    // Try to find a remote video first for mobile PiP
-    const remoteVideo = document.querySelector('#remoteVideo video');
-    if (remoteVideo && remoteVideo.srcObject) {
-      try {
-        await remoteVideo.requestPictureInPicture();
-        return;
-      } catch (error) {
-        console.error('Error entering PiP mode with remote video:', error);
-      }
-    }
+    await exitPip();
+    return;
+  }
 
-    // Fall back to local video if remote video PiP fails
-    const pipVideo = document.createElement('video');
-    pipVideo.srcObject = localVideoTrack.getMediaStream();
-    pipVideo.autoplay = true;
-    pipVideo.muted = true;
-    
-    pipContainer.innerHTML = '';
-    pipContainer.appendChild(pipVideo);
-    pipContainer.style.display = 'block';
-    
+  // First try to find a screen share video
+  const screenShareVideo = document.querySelector('.screen-share video');
+  if (screenShareVideo && screenShareVideo.srcObject) {
     try {
-      await pipVideo.requestPictureInPicture();
+      await screenShareVideo.requestPictureInPicture();
+      return;
     } catch (error) {
-      console.error('Error entering PiP mode:', error);
-      pipContainer.style.display = 'none';
+      console.error('Error entering PiP mode with screen share:', error);
     }
   }
+
+  // Then try to find a regular remote video
+  const remoteVideo = document.querySelector('#remoteVideo video');
+  if (remoteVideo && remoteVideo.srcObject) {
+    try {
+      await remoteVideo.requestPictureInPicture();
+      return;
+    } catch (error) {
+      console.error('Error entering PiP mode with remote video:', error);
+    }
+  }
+
+  // Try local video as a last resort
+  try {
+    // Get the media stream track from the local video track
+    const mediaStreamTrack = localVideoTrack.getMediaStreamTrack();
+    if (mediaStreamTrack) {
+      // Create a new MediaStream with the track
+      const mediaStream = new MediaStream([mediaStreamTrack]);
+      
+      // Create a video element for PiP
+      const pipVideo = document.createElement('video');
+      pipVideo.srcObject = mediaStream;
+      pipVideo.autoplay = true;
+      pipVideo.muted = true;
+      
+      // Wait for metadata to load before requesting PiP
+      await new Promise((resolve, reject) => {
+        pipVideo.onloadedmetadata = resolve;
+        pipVideo.onerror = reject;
+        // Set a timeout in case the video never loads
+        setTimeout(reject, 5000);
+      });
+      
+      // Clear and update the PiP container
+      pipContainer.innerHTML = '';
+      pipContainer.appendChild(pipVideo);
+      pipContainer.style.display = 'block';
+      
+      // Request PiP
+      await pipVideo.requestPictureInPicture();
+      return;
+    }
+  } catch (error) {
+    console.error('Error trying to use local video for PiP:', error);
+  }
+
+  // If we get here, no suitable video was found for PiP
+  alert('Picture-in-Picture is only available for remote video or screen sharing content.');
 }
 
 function exitPip() {
