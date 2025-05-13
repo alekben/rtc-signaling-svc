@@ -1266,26 +1266,27 @@ function initPip() {
 async function togglePip() {
   if (!localVideoTrack) return;
 
-  if (document.pictureInPictureElement) {
-    await document.exitPictureInPicture();
-  } else {
-    // Create a new video element for PiP
-    const pipVideo = document.createElement('video');
-    pipVideo.srcObject = localVideoTrack.getMediaStream();
-    pipVideo.autoplay = true;
-    pipVideo.muted = true;
-    
-    // Clear previous content and add new video
-    pipContainer.innerHTML = '';
-    pipContainer.appendChild(pipVideo);
-    pipContainer.style.display = 'block';
-    
-    try {
-      await pipVideo.requestPictureInPicture();
-    } catch (error) {
-      console.error('Error entering PiP mode:', error);
+  try {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
       pipContainer.style.display = 'none';
+    } else {
+      // Create a new video element for PiP
+      const pipVideo = document.createElement('video');
+      pipVideo.srcObject = localVideoTrack.getMediaStream();
+      pipVideo.autoplay = true;
+      pipVideo.muted = true;
+      
+      // Clear previous content and add new video
+      pipContainer.innerHTML = '';
+      pipContainer.appendChild(pipVideo);
+      pipContainer.style.display = 'block';
+      
+      await pipVideo.requestPictureInPicture();
     }
+  } catch (error) {
+    console.error('Error toggling PiP mode:', error);
+    pipContainer.style.display = 'none';
   }
 }
 
@@ -1300,3 +1301,6 @@ function exitPip() {
 document.addEventListener('leavepictureinpicture', () => {
   pipContainer.style.display = 'none';
 });
+
+// Remove any visibility change event listeners that might have been added
+document.removeEventListener('visibilitychange', handleVisibilityChange);
