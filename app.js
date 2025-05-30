@@ -338,7 +338,16 @@ async function subscribeRTM() {
   }
 };
 
-
+// Function to show toxicity warning
+function showToxicityWarning() {
+  const warning = document.getElementById('toxicityWarning');
+  warning.style.display = 'block';
+  
+  // Hide the warning after 5 seconds
+  setTimeout(() => {
+    warning.style.display = 'none';
+  }, 5000);
+}
 
 /** Publish a message to the subscribed channel. */
 sendChannelMsgBtn.addEventListener("click", async () => {
@@ -353,7 +362,7 @@ sendChannelMsgBtn.addEventListener("click", async () => {
     // Check message for toxicity
     const isToxic = await checkMessageToxicity(msg);
     if (isToxic) {
-      alert("Your message contains inappropriate content. Please revise your message.");
+      showToxicityWarning();
       return;
     }
 
