@@ -120,8 +120,17 @@ async function checkMessageToxicity(message) {
 
   try {
     const predictions = await toxicityClassifier.classify(message);
-    // Check if any category exceeds the threshold
-    return predictions.some(prediction => prediction.match);
+    console.log('Toxicity predictions:', predictions);
+    
+    // Check each prediction category
+    const isToxic = predictions.some(prediction => {
+      const isMatch = prediction.results[0].match;
+      console.log(`Category ${prediction.label}: ${isMatch}`);
+      return isMatch;
+    });
+
+    console.log('Message toxicity result:', isToxic);
+    return isToxic;
   } catch (error) {
     console.error('Error checking message toxicity:', error);
     return false;
