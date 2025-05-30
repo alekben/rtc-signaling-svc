@@ -97,6 +97,37 @@ localVideoLabel.className = "video-label";
 localVideoLabel.textContent = userIdInput.value || "Local Video";
 localVideo.appendChild(localVideoLabel);
 
+// Add toxicity classifier
+let toxicityClassifier = null;
+
+// Initialize toxicity classifier
+async function initToxicityClassifier() {
+  try {
+    // Load the toxicity classifier
+    toxicityClassifier = await toxicity.load(0.7); // 0.7 is the threshold for toxicity
+    console.log('Toxicity classifier loaded successfully');
+  } catch (error) {
+    console.error('Failed to load toxicity classifier:', error);
+  }
+}
+
+// Function to check message toxicity
+async function checkMessageToxicity(message) {
+  if (!toxicityClassifier) {
+    console.warn('Toxicity classifier not loaded');
+    return false;
+  }
+
+  try {
+    const predictions = await toxicityClassifier.classify(message);
+    // Check if any category exceeds the threshold
+    return predictions.some(prediction => prediction.match);
+  } catch (error) {
+    console.error('Error checking message toxicity:', error);
+    return false;
+  }
+}
+
 // Function to create a new video element with label
 function createVideoElement(userId) {
   const videoElement = document.createElement("div");
@@ -308,7 +339,16 @@ sendChannelMsgBtn.addEventListener("click", async () => {
   }
   const msg = channelMsgInput.value.trim();
   if (!msg) return;
+
   try {
+    // Check message for toxicity
+    const isToxic = await checkMessageToxicity(msg);
+    if (isToxic) {
+      alert("Your message contains inappropriate content. Please revise your message.");
+      return;
+    }
+
+    // If message passes toxicity check, publish it
     await rtmClient.publish(subscribedChannel, msg);
     addChatMessage(channelChatBox, `[You]: ${msg}`);
     channelMsgInput.value = "";
@@ -606,7 +646,10 @@ function getUrlParameter(name) {
 }
 
 // Show modal when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize toxicity classifier
+  await initToxicityClassifier();
+
   // Check for URL parameters
   const channelParam = getUrlParameter('channel');
   const userParam = getUrlParameter('user');
